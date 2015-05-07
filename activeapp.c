@@ -38,7 +38,6 @@ on_active_window_changed (WnckScreen *screen, WnckWindow *previous_window,  gpoi
 
 	{
 		infowidget *inwidget = (infowidget*)data;
-		WnckWindow *active_window;
 		inwidget->wnck_window = wnck_screen_get_active_window(screen);
 		WnckWindowType type;
 		WnckApplication *app;
