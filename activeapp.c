@@ -1,7 +1,6 @@
 #include <gtk/gtk.h>
 #include <libwnck/libwnck.h>
 #include <string.h>
-#define BUF_LENGTH 36
 #define MAX_WIDTH_CHARS 30
 
 typedef struct infowidget {
@@ -11,33 +10,44 @@ typedef struct infowidget {
   GtkWidget *event_box;
   GtkWidget *menu;
   GtkWidget *action_menu;
+  WnckScreen *screen;
+  WnckWindow *wnck_window;
   
 }infowidget;
 
 static gint
-popup_handler (GtkWidget *widget, GdkEvent *event)
+popup_handler (GtkWidget *widget, GdkEventButton *event, infowidget *inwidget)
 {
-	GdkEventButton *event_button = (GdkEventButton *) event;
+	if ((event->button == 1) 
+	&& (wnck_window_get_window_type (inwidget->wnck_window) != WNCK_WINDOW_DESKTOP))
+	{
+		inwidget->action_menu = wnck_action_menu_new (inwidget->wnck_window);
+		gtk_menu_attach_to_widget (GTK_MENU (inwidget->action_menu), inwidget->event_box, NULL);
+		GdkEventButton *event_button = (GdkEventButton *) event;
 	
-	gtk_menu_popup (GTK_MENU (widget), NULL, NULL, NULL, NULL,
+		gtk_menu_popup (GTK_MENU (inwidget->action_menu), NULL, NULL, NULL, NULL,
 					event_button->button, event_button->time);
-				
+	}
+	
+	else
+	{
+	}			
 }
 static void
 on_active_window_changed (WnckScreen *screen, WnckWindow *previous_window,  gpointer data)
 
-	{gchar name[BUF_LENGTH];
+	{
 		infowidget *inwidget = (infowidget*)data;
 		WnckWindow *active_window;
-		active_window = wnck_screen_get_active_window(screen);
+		inwidget->wnck_window = wnck_screen_get_active_window(screen);
 		WnckWindowType type;
 		WnckApplication *app;
 		
 		gtk_image_clear(GTK_IMAGE(inwidget->icon));
 		
-		if (active_window)
+		if (inwidget->wnck_window)
 		{
-			type=wnck_window_get_window_type (active_window);
+			type=wnck_window_get_window_type (inwidget->wnck_window);
 			if (type == WNCK_WINDOW_DESKTOP || type == WNCK_WINDOW_DOCK || type == WNCK_WINDOW_UTILITY)
 			{	
 				gtk_label_set_text(GTK_LABEL(inwidget->label),"");
@@ -45,33 +55,19 @@ on_active_window_changed (WnckScreen *screen, WnckWindow *previous_window,  gpoi
 			
 			else
 			{
-				/* 
-				 * 
-				 * if (inwidget->action_menu)
-					gtk_widget_destroy (GTK_WIDGET(inwidget->action_menu));
+							
 					
-				inwidget->action_menu = wnck_action_menu_new (active_window);
 				
-				g_signal_handlers_disconnect_matched (inwidget->action_menu, G_SIGNAL_MATCH_FUNC, 
-					NULL, NULL, NULL, popup_handler, NULL);
-					
-				g_signal_connect_swapped (inwidget->event_box, "button-press-event", 
-					G_CALLBACK(popup_handler), GTK_WIDGET (inwidget->action_menu));
-					* 
-					*/
-				
-				app=wnck_window_get_application(active_window);
-				strncpy (name, wnck_application_get_name (app), BUF_LENGTH);
-				name[BUF_LENGTH-1]='\0';
-				
-				if (wnck_window_is_skip_pager(active_window))
+				app=wnck_window_get_application(inwidget->wnck_window);
+								
+				if (wnck_window_is_skip_pager(inwidget->wnck_window))
 				{gtk_label_set_text(GTK_LABEL(inwidget->label),"");
 				//app=wnck_window_get_application(active_window);
 				//gtk_label_set_text(GTK_LABEL(data),wnck_application_get_name (app));
 			}
 			else
-			{gtk_label_set_text(GTK_LABEL(inwidget->label),name);
-				inwidget->pixbuf=wnck_window_get_icon (active_window);
+			{gtk_label_set_text(GTK_LABEL(inwidget->label),wnck_application_get_name (app));
+				inwidget->pixbuf=wnck_window_get_icon (inwidget->wnck_window);
 				gtk_image_set_from_pixbuf(GTK_IMAGE(inwidget->icon),inwidget->pixbuf);
 			}
 			}
@@ -99,8 +95,8 @@ widget.action_menu = 0;
   
 	 
 	gtk_init (&argc, &argv);
-  WnckScreen *screen;
- screen = wnck_screen_get_default ();
+ 
+ widget.screen = wnck_screen_get_default ();
   
   window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   g_signal_connect (window, "destroy",
@@ -129,8 +125,11 @@ widget.action_menu = 0;
   gtk_box_pack_start (GTK_BOX (hbox), widget.label, FALSE, FALSE, 0); 
   gtk_widget_show(widget.label);
   
-  g_signal_connect (screen, "active-window-changed",
+  g_signal_connect (widget.screen, "active-window-changed",
                     G_CALLBACK (on_active_window_changed), &widget);
+                    
+	g_signal_connect (widget.event_box, "button-press-event", 
+			G_CALLBACK(popup_handler), &widget);
                    
    gtk_widget_show_all(window);
    
